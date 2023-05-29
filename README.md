@@ -77,7 +77,7 @@ You will see chat happen in the Terminal standard out, the HTTP response, and sa
 
 ## Source Code
 
-The key code that makes this work is as follows in `./chat/function_app.py`.  You can customize this or learn more snippets using [Examples](https://platform.openai.com/examples) and [OpenAPI Playground](https://platform.openai.com/playground/).
+The key code that makes this work is as follows in `./function_app.py`.  You can customize this or learn more snippets using [Examples](https://platform.openai.com/examples) and [OpenAPI Playground](https://platform.openai.com/playground/).
 
 ```python
     completion = openai.Completion.create(
