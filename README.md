@@ -26,7 +26,7 @@ Search for Environment Variables in Settings, create new System Variables simila
 | -------- | ----- |
 | OPENAI_API_KEY | *Paste from step 3* |
 
-5) Add this local.settings.json file to the text_summarize folder to simplify local development and include Key from step 3
+5) Add this local.settings.json file to the root folder to simplify local development and include Key from step 3
 ```json
 {
   "IsEncrypted": false,
