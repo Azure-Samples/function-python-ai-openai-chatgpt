@@ -33,7 +33,7 @@ Search for Environment Variables in Settings, create new System Variables simila
   "Values": {
     "FUNCTIONS_WORKER_RUNTIME": "python",
     "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "AzureWebJobsStorage": "",
     "OPENAI_API_KEY": "*Paste from step 3*"
   }
 }
