@@ -10,7 +10,7 @@ products:
 - azure-openai-service
 urlFragment: function-python-ai-openai-chatgpt
 name: Azure Functions - Chat using ChatGPT (Python v2 Function)
-description: Using ChatGPT prompt as HTTP Get or Post input, calculates the completions using OpenAI ChatGPT service, returns the output plus caches.
+description: Using ChatGPT prompt with python as HTTP Get or Post input, calculates the completions using OpenAI ChatGPT service, returns the output plus caches.
 ---
 <!-- YAML front-matter schema: https://review.learn.microsoft.com/en-us/help/contribute/samples/process/onboarding?branch=main#supported-metadata-fields-for-readmemd -->
 
