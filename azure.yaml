@@ -2,7 +2,7 @@
 
 name: chatgpt-openai-py-ai-func
 metadata:
-  template: chatgpt-openai-py-ai-func@0.0.1-beta
+  template: chatgpt-openai-py-ai-func@1.0.0-beta
 services:
   api:
     project: ./
