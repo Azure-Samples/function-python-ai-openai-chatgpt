@@ -39,8 +39,10 @@ The easiest way to install Azurite is using a Docker container or the support bu
 docker run -d -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite
 ```
 
-4) Once you have your Azure subscription, run the following in a new terminal window to create all the AI Language and other resources needed:
-```azd provision```
+4) Once you have your Azure subscription, run the following in a new terminal window to create Azure OpenAI and other resources needed:
+```bash
+azd provision
+```
 
 Take note of the value of `AZURE_OPENAI_ENDPOINT` which can be found in `./.azure/<env name from azd provision>/.env`.  It will look something like:
 ```bash
