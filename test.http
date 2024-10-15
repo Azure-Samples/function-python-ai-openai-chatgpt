@@ -1,8 +1,51 @@
+### Simple Whois Completion(Local)
+GET http://localhost:7071/api/whois/Turing HTTP/1.1
 
-
-POST http://localhost:7071/api/chat HTTP/1.1
+### Simple Ask Completion (Local)
+POST http://localhost:7071/api/ask HTTP/1.1
 content-type: application/json
 
 {
-    "prompt": "Write a poem about Azure Functions.  Include two reasons why users love them."
+    "prompt": "Tell me two most popular programming features of Azure Functions"
 }
+
+### Simple Ask Completion (Cloud)
+### .gitignore this file if and when you set key
+POST https://<your-function-name>.azurewebsites.net/api/ask HTTP/1.1
+content-type: application/json
+x-functions-key: <your-function-key>
+
+{
+    "prompt": "Tell me two most popular programming features of Azure Functions"
+}
+
+### Stateful Chatbot
+
+### CreateChatBot
+PUT http://localhost:7071/api/chats/abc123
+Content-Type: application/json
+
+{
+    "name": "Sample ChatBot",
+    "description": "This is a sample chatbot."
+}
+
+### PostChat
+POST http://localhost:7071/api/chats/abc123
+Content-Type: application/json
+
+{
+    "message": "Hello, how can I assist you today?"
+}
+
+### PostChat
+POST http://localhost:7071/api/chats/abc123
+Content-Type: application/json
+
+{
+    "message": "Need help with directions from Redmond to SeaTac?"
+}
+
+### GetChatState
+GET http://localhost:7071/api/chats/abc123?timestampUTC=2024-01-15T22:00:00
+Content-Type: application/json

@@ -1,52 +1,90 @@
-import azure.functions as func
+import json
 import logging
-import os
+import azure.functions as func
 
-app = func.FunctionApp()
+app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-@app.function_name(name='chat')
-@app.route(route='chat')
-def main(req):
 
-    if 'OPENAI_API_KEY' not in os.environ:
-        raise RuntimeError("No 'OPENAI_API_KEY' env var set.  Please see Readme.")
+# Simple ask http POST function that returns the completion based on prompt
+# This OpenAI completion input requires a {prompt} value in json POST body
+@app.function_name("ask")
+@app.route(route="ask", methods=["POST"])
+@app.text_completion_input(arg_name="response", prompt="{prompt}",
+                           model="%CHAT_MODEL_DEPLOYMENT_NAME%")
+def ask(req: func.HttpRequest, response: str) -> func.HttpResponse:
+    response_json = json.loads(response)
+    return func.HttpResponse(response_json["content"], status_code=200)
 
-    import openai
-    openai.api_key = os.getenv('OPENAI_API_KEY')
 
-    prompt = req.params.get('prompt') 
-    if not prompt: 
-        try: 
-            req_body = req.get_json() 
-        except ValueError: 
-            raise RuntimeError("prompt data must be set in POST.") 
-        else: 
-            prompt = req_body.get('prompt') 
-            if not prompt:
-                raise RuntimeError("prompt data must be set in POST.")
+# Simple WhoIs http GET function that returns the completion based on name
+# This OpenAI completion input requires a {name} binding value.
+@app.function_name("whois")
+@app.route(route="whois/{name}", methods=["GET"])
+@app.text_completion_input(arg_name="response", prompt="Who is {name}?",
+                           max_tokens="100",
+                           model="%CHAT_MODEL_DEPLOYMENT_NAME%")
+def whois(req: func.HttpRequest, response: str) -> func.HttpResponse:
+    response_json = json.loads(response)
+    return func.HttpResponse(response_json["content"], status_code=200)
 
-    completion = openai.Completion.create(
-        model='text-davinci-003',
-        prompt=generate_prompt(prompt),
-        temperature=0.9,
-        max_tokens=200
+
+CHAT_STORAGE_CONNECTION = "AzureWebJobsStorage"
+COLLECTION_NAME = "ChatState"
+
+
+# http PUT function to start ChatBot conversation based on a chatID
+@app.function_name("CreateChatBot")
+@app.route(route="chats/{chatId}", methods=["PUT"])
+@app.assistant_create_output(arg_name="requests")
+def create_chat_bot(req: func.HttpRequest,
+                    requests: func.Out[str]) -> func.HttpResponse:
+    chatId = req.route_params.get("chatId")
+    input_json = req.get_json()
+    logging.info(
+        f"Creating chat ${chatId} from input parameters " +
+        "${json.dumps(input_json)}")
+    create_request = {
+        "id": chatId,
+        "instructions": input_json.get("instructions"),
+        "chatStorageConnectionSetting": CHAT_STORAGE_CONNECTION,
+        "collectionName": COLLECTION_NAME
+    }
+    requests.set(json.dumps(create_request))
+    response_json = {"chatId": chatId}
+    return func.HttpResponse(json.dumps(response_json), status_code=202,
+                             mimetype="application/json")
+
+
+# http GET function to get ChatBot conversation with chatID & timestamp
+@app.function_name("GetChatState")
+@app.route(route="chats/{chatId}", methods=["GET"])
+@app.assistant_query_input(
+    arg_name="state",
+    id="{chatId}",
+    timestamp_utc="{Query.timestampUTC}",
+    chat_storage_connection_setting=CHAT_STORAGE_CONNECTION,
+    collection_name=COLLECTION_NAME
+)
+def get_chat_state(req: func.HttpRequest, state: str) -> func.HttpResponse:
+    return func.HttpResponse(state, status_code=200,
+                             mimetype="application/json")
+
+
+# http POST function for user to send a message to ChatBot with chatID
+@app.function_name("PostUserResponse")
+@app.route(route="chats/{chatId}", methods=["POST"])
+@app.assistant_post_input(
+    arg_name="state", id="{chatId}",
+    user_message="{message}",
+    model="%CHAT_MODEL_DEPLOYMENT_NAME%",
+    chat_storage_connection_setting=CHAT_STORAGE_CONNECTION,
+    collection_name=COLLECTION_NAME
     )
-    return completion.choices[0].text
+def post_user_response(req: func.HttpRequest, state: str) -> func.HttpResponse:
+    # Parse the JSON string into a dictionary
+    data = json.loads(state)
 
-
-def generate_prompt(prompt):
-    capitalized_prompt = prompt.capitalize()
-
-    # prompt template is important to set some context and training up front in addition to user driven input
-
-    # Freeform question
-    return f'{capitalized_prompt}'
-
-    # Chat
-    #return f'The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today?\nHuman: {capitalized_prompt}' 
-
-    # Classification
-    #return 'The following is a list of companies and the categories they fall into:\n\nApple, Facebook, Fedex\n\nApple\nCategory: ' 
-
-    # Natural language to Python
-    #return '\"\"\"\n1. Create a list of first names\n2. Create a list of last names\n3. Combine them randomly into a list of 100 full names\n\"\"\"'
+    # Extract the content of the recentMessage
+    recent_message_content = data['recentMessages'][0]['content']
+    return func.HttpResponse(recent_message_content, status_code=200,
+                             mimetype="text/plain")
