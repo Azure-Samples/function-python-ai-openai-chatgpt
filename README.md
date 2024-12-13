@@ -33,7 +33,7 @@ This sample shows simple ways to interact with Azure OpenAI & GPT-4 model to bui
 
 ### Pre-reqs
 1) [Python 3.8+](https://www.python.org/) 
-2) [Azure Functions Core Tools 4.0.6280 or higher](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=v4%2Cmacos%2Ccsharp%2Cportal%2Cbash#install-the-azure-functions-core-tools)
+2) [Azure Functions Core Tools 4.0.6610 or higher](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local?tabs=v4%2Cmacos%2Ccsharp%2Cportal%2Cbash#install-the-azure-functions-core-tools)
 3) [Azurite](https://github.com/Azure/Azurite)
 
 The easiest way to install Azurite is using a Docker container or the support built into Visual Studio:
