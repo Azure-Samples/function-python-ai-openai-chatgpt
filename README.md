@@ -1,3 +1,4 @@
+<!--
 ---
 page_type: sample
 languages:
@@ -15,15 +16,16 @@ products:
 - blob-storage
 - table-storage
 urlFragment: function-python-ai-openai-chatgpt
-name: Azure Functions - Chat using ChatGPT (Python Function)
-description: This sample shows simple ways to interact with ChatGPT & OpenAI using Azure Functions [Open AI Triggers and Bindings extension](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-openai?tabs=isolated-process&pivots=programming-language-javascript).  You can issue simple prompts and receive completions using the `ask` function, and you can send messages and perform a stateful session with a friendly ChatBot using the `chat` function.
+name: Azure Functions - Chat using Azure OpenAI (Python Function)
+description: This sample shows simple ways to interact with Azure OpenAI & GPT-4 model to build an interactive using Azure Functions using [Azure Open AI Triggers and Bindings extension](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-openai?tabs=isolated-process&pivots=programming-language-python).  You can issue simple prompts and receive completions using the `ask` function, and you can send messages and perform a stateful session with a friendly ChatBot using the `chat` function.
 ---
+-->
 <!-- YAML front-matter schema: https://review.learn.microsoft.com/en-us/help/contribute/samples/process/onboarding?branch=main#supported-metadata-fields-for-readmemd -->
 
 # Azure Functions
-## Chat using ChatGPT (Python v2 Function)
+## Chat using Azure OpenAI (Python v2 Function)
 
-This sample shows simple ways to interact with ChatGPT & OpenAI using Azure Functions [Open AI Triggers and Bindings extension](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-openai?tabs=isolated-process&pivots=programming-language-javascript).  You can issue simple prompts and receive completions using the `ask` function, and you can send messages and perform a stateful session with a friendly ChatBot using the `chats` function.  The app deploys easily to Azure Functions Flex Consumption hosting plan using `azd up`. 
+This sample shows simple ways to interact with Azure OpenAI & GPT-4 model to build an interactive using Azure Functions [Azure Open AI Triggers and Bindings extension](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-openai?tabs=isolated-process&pivots=programming-language-javascript).  You can issue simple prompts and receive completions using the `ask` function, and you can send messages and perform a stateful session with a friendly ChatBot using the `chats` function.  The app deploys easily to Azure Functions Flex Consumption hosting plan using `azd up`. 
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Azure-Samples/function-python-ai-openai-chatgpt)
 
@@ -49,7 +51,7 @@ Take note of the value of `AZURE_OPENAI_ENDPOINT` which can be found in `./.azur
 AZURE_OPENAI_ENDPOINT="https://cog-<unique string>.openai.azure.com/"
 ```
 
-Alternatively you can [create an OpenAI resource](https://portal.azure.com/#create/Microsoft.CognitiveServicesTextAnalytics) in the Azure portal to get your key and endpoint. After it deploys, click Go to resource and view the Endpoint value.  You will also need to deploy a model, e.g. with name `chat` and model `gpt-35-turbo`.
+Alternatively you can [create an OpenAI resource](https://portal.azure.com/#create/Microsoft.CognitiveServicesTextAnalytics) in the Azure portal to get your key and endpoint. After it deploys, click Go to resource and view the Endpoint value.  You will also need to deploy a model, e.g. with name `chat` and model `gpt-4o`.
 
 5) Add this `local.settings.json` file to the root of the repo folder to simplify local development.  Replace `AZURE_OPENAI_ENDPOINT` with your value from step 4.  Optionally you can choose a different model deployment in `CHAT_MODEL_DEPLOYMENT_NAME`.  This file will be gitignored to protect secrets from committing to your repo, however by default the sample uses Entra identity (user identity and mananaged identity) so it is secretless.  
 ```json
@@ -155,7 +157,7 @@ The key code that makes the prompting and completion work is as follows in [func
 
 The whois function expects a name to be sent in the route `/api/whois/<name>` and you get to see a different example of a route and parameter coming in via http GET.  
 
-### Simple prompting and completions with ChatGPT
+### Simple prompting and completions with gpt
 
 ```python
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
@@ -184,7 +186,7 @@ def whois(req: func.HttpRequest, response: str) -> func.HttpResponse:
     return func.HttpResponse(response_json["content"], status_code=200)
 ```
 
-### Stateful ChatBots with ChatGPT
+### Stateful ChatBots with gpt
 
 The stateful chatbot is shown in [function_app.py](function_app.py) routing to `/api/chats`.  This is a stateful function meaning you can create or ask for a session by <chatId> and continue where you left off with the same context and memories stored by the function binding (backed Table storage).  This makes use of the Assistants feature of the Azure Functions OpenAI extension that has a set of inputs and outputs for this case.  
 
