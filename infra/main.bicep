@@ -40,9 +40,9 @@ param chatDeploymentVersion string = ''
 param chatDeploymentCapacity int = 0
 
 var chatModel = {
-  modelName: !empty(chatModelName) ? chatModelName : startsWith(openAiHost, 'azure') ? 'gpt-35-turbo' : 'gpt-3.5-turbo'
+  modelName: !empty(chatModelName) ? chatModelName : startsWith(openAiHost, 'azure') ? 'gpt-4o' : 'gpt-4o'
   deploymentName: !empty(chatDeploymentName) ? chatDeploymentName : 'chat'
-  deploymentVersion: !empty(chatDeploymentVersion) ? chatDeploymentVersion : '0613'
+  deploymentVersion: !empty(chatDeploymentVersion) ? chatDeploymentVersion : '2024-08-06'
   deploymentCapacity: chatDeploymentCapacity != 0 ? chatDeploymentCapacity : 40
 }
 
