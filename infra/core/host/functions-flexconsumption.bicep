@@ -11,6 +11,8 @@ param virtualNetworkSubnetId string = ''
 param identityType string
 @description('User assigned identity name')
 param identityId string
+@description('User assigned identity client id')
+param identityClientId string
 
 // Runtime Properties
 @allowed([
@@ -71,8 +73,11 @@ resource functions 'Microsoft.Web/sites@2023-12-01' = {
     name: 'appsettings'
     properties: union(appSettings,
       {
-        AzureWebJobsStorage__accountName: stg.name
+        AzureWebJobsStorage__blobServiceUri: stg.properties.primaryEndpoints.blob
+        AzureWebJobsStorage__tableServiceUri: stg.properties.primaryEndpoints.table
+        AzureWebJobsStorage__queueServiceUri: stg.properties.primaryEndpoints.queue
         AzureWebJobsStorage__credential : 'managedidentity'
+        AzureWebJobsStorage__clientId : identityClientId
         APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
       })
   }
