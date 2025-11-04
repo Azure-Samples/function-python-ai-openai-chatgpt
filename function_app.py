@@ -1,24 +1,27 @@
 import json
 import logging
-import azure.functions as func
 import os
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from datetime import datetime
+
+import azure.functions as func
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import OpenAI
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-from openai import AzureOpenAI
-
-# Configuration for Azure OpenAI (using Responses API)
+# Configuration for Azure OpenAI
 endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 model_name = os.getenv("MODEL_DEPLOYMENT_NAME")
 token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
-api_version = "2025-03-01-preview"  # Required for Responses API
 
-client = AzureOpenAI(
-    api_version=api_version,
-    azure_endpoint=endpoint,
-    azure_ad_token_provider=token_provider,
+# Azure OpenAI with standard OpenAI client
+api_version = "2024-10-21"  # Use stable API version
+base_url = f"{endpoint.rstrip('/')}/openai/deployments/{model_name}"
+
+client = OpenAI(
+    base_url=base_url,
+    api_key=token_provider,
+    default_query={"api-version": api_version}
 )
 
 # Table name for chat sessions
@@ -91,7 +94,6 @@ def create_chat_bot(req: func.HttpRequest, chat_table: func.Out[str]) -> func.Ht
             "PartitionKey": "chat",
             "RowKey": chat_id,
             "instructions": instructions,
-            "previous_response_id": "",
             "created_at": datetime.utcnow().isoformat(),
             "ETag": "*"
         }
@@ -129,7 +131,6 @@ def get_chat_state(req: func.HttpRequest, chat_entity: str) -> func.HttpResponse
             
         return func.HttpResponse(json.dumps({
             "instructions": entity.get("instructions", ""),
-            "previous_response_id": entity.get("previous_response_id", ""),
             "created_at": entity.get("created_at", "")
         }), status_code=200, mimetype="application/json")
     
@@ -165,32 +166,33 @@ def post_user_response(req: func.HttpRequest, chat_entity: str, chat_table: func
         if not entity:
             return func.HttpResponse("Chat not found", status_code=404)
         
-        # Prepare Azure OpenAI request
-        params = {
-            "model": model_name,
-            "input": [{"role": "user", "content": message}]
-        }
+        # Prepare messages for chat completion
+        messages = []
         
+        # Add system message if instructions exist
         if entity.get("instructions"):
-            params["instructions"] = entity["instructions"]
-        if entity.get("previous_response_id"):
-            params["previous_response_id"] = entity["previous_response_id"]
+            messages.append({"role": "system", "content": entity["instructions"]})
         
-        # Get AI response
-        response = client.responses.create(**params)
+        # Add user message
+        messages.append({"role": "user", "content": message})
         
-        # Update chat state
+        # Get AI response using chat completions
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages
+        )
+        
+        # Update chat state (removing previous_response_id as it's not needed with standard OpenAI)
         updated_entity = {
             "PartitionKey": "chat",
             "RowKey": chat_id,
             "instructions": entity.get("instructions", "You are a helpful assistant."),
-            "previous_response_id": response.id,
             "created_at": entity.get("created_at", datetime.utcnow().isoformat()),
             "ETag": "*"
         }
         
         chat_table.set(json.dumps(updated_entity))
-        return func.HttpResponse(response.output_text, status_code=200, mimetype="text/plain")
+        return func.HttpResponse(response.choices[0].message.content, status_code=200, mimetype="text/plain")
     
     except Exception as e:
         logging.error(f"Error processing chat message: {e}")
