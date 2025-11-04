@@ -22,16 +22,15 @@ x-functions-key: <your-function-key>
 ### Stateful Chatbot
 
 ### CreateChatBot
-PUT http://localhost:7071/api/chats/abc123
+PUT http://localhost:7071/api/chats/abc124
 Content-Type: application/json
 
 {
-    "name": "Sample ChatBot",
-    "description": "This is a sample chatbot."
+    "instructions": "You are a helpful assistant that provides concise and accurate answers."
 }
 
 ### PostChat
-POST http://localhost:7071/api/chats/abc123
+POST http://localhost:7071/api/chats/abc124
 Content-Type: application/json
 
 {
@@ -39,7 +38,7 @@ Content-Type: application/json
 }
 
 ### PostChat
-POST http://localhost:7071/api/chats/abc123
+POST http://localhost:7071/api/chats/abc124
 Content-Type: application/json
 
 {
@@ -47,5 +46,5 @@ Content-Type: application/json
 }
 
 ### GetChatState
-GET http://localhost:7071/api/chats/abc123?timestampUTC=2024-01-15T22:00:00
+GET http://localhost:7071/api/chats/abc124
 Content-Type: application/json
