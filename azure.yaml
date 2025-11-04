@@ -2,9 +2,25 @@
 
 name: chatgpt-openai-py-ai-func
 metadata:
-  template: chatgpt-openai-py-ai-func@1.0.0-beta
+  template: chatgpt-openai-py-ai-func@1.0.1
 services:
   api:
     project: ./
     language: python
     host: function
+hooks:
+  postprovision:
+    posix:
+      shell: sh
+      run: ./infra/scripts/setuplocalenvironment.sh
+      interactive: true
+      continueOnError: false
+    windows:
+      shell: pwsh
+      run: ./infra/scripts/setuplocalenvironment.ps1
+      interactive: true
+      continueOnError: false
+  postdeploy:
+    shell: sh
+    run: echo "Deployment completed successfully"
+    continueOnError: false
