@@ -69,13 +69,13 @@ param projectCapabilityHostName string = 'caphostproj'
 param aiServicesName string = 'agent-ai-services'
 
 @description('Model name for deployment')
-param modelName string = 'gpt-4o-mini'
+param modelName string = 'gpt-4.1-mini'
 
 @description('Model format for deployment')
 param modelFormat string = 'OpenAI'
 
 @description('Model version for deployment')
-param modelVersion string = '2024-07-18'
+param modelVersion string = '2025-04-14'
 
 @description('Model deployment SKU name')
 param modelSkuName string = 'GlobalStandard'
