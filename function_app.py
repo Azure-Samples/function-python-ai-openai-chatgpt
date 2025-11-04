@@ -15,13 +15,11 @@ model_name = os.getenv("MODEL_DEPLOYMENT_NAME")
 token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
 
 # Azure OpenAI with standard OpenAI client
-api_version = "2024-10-21"  # Use stable API version
-base_url = f"{endpoint.rstrip('/')}/openai/deployments/{model_name}"
+base_url = f"{endpoint.rstrip('/')}/openai/v1"
 
 client = OpenAI(
     base_url=base_url,
-    api_key=token_provider,
-    default_query={"api-version": api_version}
+    api_key=token_provider
 )
 
 # Table name for chat sessions
