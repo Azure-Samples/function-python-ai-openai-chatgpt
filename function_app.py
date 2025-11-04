@@ -10,8 +10,8 @@ from openai import OpenAI
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 # Configuration for Azure OpenAI
-endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-model_name = os.getenv("MODEL_DEPLOYMENT_NAME")
+endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
+model_name = os.environ["MODEL_DEPLOYMENT_NAME"]
 token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
 
 # Azure OpenAI with standard OpenAI client
