@@ -1,90 +1,197 @@
 import json
 import logging
+import os
+from datetime import datetime
+
 import azure.functions as func
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import OpenAI
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+
+# Configuration for Azure OpenAI
+endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
+model_name = os.environ["MODEL_DEPLOYMENT_NAME"]
+token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+
+# Azure OpenAI with standard OpenAI client
+base_url = f"{endpoint.rstrip('/')}/openai/v1"
+
+client = OpenAI(
+    base_url=base_url,
+    api_key=token_provider
+)
+
+# Table name for chat sessions
+table_name = "ChatSessions"
 
 
 # Simple ask http POST function that returns the completion based on prompt
 # This OpenAI completion input requires a {prompt} value in json POST body
 @app.function_name("ask")
 @app.route(route="ask", methods=["POST"])
-@app.text_completion_input(arg_name="response", prompt="{prompt}",
-                           model="%CHAT_MODEL_DEPLOYMENT_NAME%")
-def ask(req: func.HttpRequest, response: str) -> func.HttpResponse:
-    response_json = json.loads(response)
-    return func.HttpResponse(response_json["content"], status_code=200)
+def ask(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        prompt = req_body.get('prompt')
+
+        if not prompt:
+            return func.HttpResponse("Please provide 'prompt' in the request body.", status_code=400)
+
+        logging.info(f"Processing POST request. Prompt: {prompt}")
+
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return func.HttpResponse(response.choices[0].message.content, status_code=200)
+
+    except (ValueError, TypeError):
+        return func.HttpResponse("Invalid JSON in request body", status_code=400)
+    except Exception as e:
+        logging.error(f"Error processing request: {e}")
+        return func.HttpResponse("Internal server error", status_code=500)
 
 
 # Simple WhoIs http GET function that returns the completion based on name
-# This OpenAI completion input requires a {name} binding value.
 @app.function_name("whois")
 @app.route(route="whois/{name}", methods=["GET"])
-@app.text_completion_input(arg_name="response", prompt="Who is {name}?",
-                           max_tokens="100",
-                           model="%CHAT_MODEL_DEPLOYMENT_NAME%")
-def whois(req: func.HttpRequest, response: str) -> func.HttpResponse:
-    response_json = json.loads(response)
-    return func.HttpResponse(response_json["content"], status_code=200)
+def whois(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        name = req.route_params.get('name')
+        
+        if not name:
+            return func.HttpResponse("Please provide a name in the URL path.", status_code=400)
+
+        logging.info(f"Processing GET request for name: {name}")
+
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": f"Who is {name}?"}],
+            max_tokens=100
+        )
+        return func.HttpResponse(response.choices[0].message.content, status_code=200)
+
+    except Exception as e:
+        logging.error(f"Error processing whois request: {e}")
+        return func.HttpResponse("Internal server error", status_code=500)
 
 
-CHAT_STORAGE_CONNECTION = "AzureWebJobsStorage"
-COLLECTION_NAME = "ChatState"
-
-
-# http PUT function to start ChatBot conversation based on a chatID
+# Create or get existing chat session
 @app.function_name("CreateChatBot")
 @app.route(route="chats/{chatId}", methods=["PUT"])
-@app.assistant_create_output(arg_name="requests")
-def create_chat_bot(req: func.HttpRequest,
-                    requests: func.Out[str]) -> func.HttpResponse:
-    chatId = req.route_params.get("chatId")
-    input_json = req.get_json()
-    logging.info(
-        f"Creating chat ${chatId} from input parameters " +
-        "${json.dumps(input_json)}")
-    create_request = {
-        "id": chatId,
-        "instructions": input_json.get("instructions"),
-        "chatStorageConnectionSetting": CHAT_STORAGE_CONNECTION,
-        "collectionName": COLLECTION_NAME
-    }
-    requests.set(json.dumps(create_request))
-    response_json = {"chatId": chatId}
-    return func.HttpResponse(json.dumps(response_json), status_code=202,
-                             mimetype="application/json")
+@app.table_output(arg_name="chat_table", table_name=table_name, connection="AzureWebJobsStorage")
+def create_chat_bot(req: func.HttpRequest, chat_table: func.Out[str]) -> func.HttpResponse:
+    try:
+        chat_id = req.route_params.get("chatId")
+        input_json = req.get_json()
+        instructions = input_json.get("instructions", "You are a helpful assistant.") if input_json else "You are a helpful assistant."
+        
+        # Create/update chat entity (upsert)
+        entity = {
+            "PartitionKey": "chat",
+            "RowKey": chat_id,
+            "instructions": instructions,
+            "created_at": datetime.utcnow().isoformat(),
+            "ETag": "*"
+        }
+        
+        chat_table.set(json.dumps(entity))
+        return func.HttpResponse(json.dumps({"chatId": chat_id}), status_code=201,
+                                mimetype="application/json")
+    
+    except Exception as e:
+        logging.error(f"Error creating chat: {e}")
+        return func.HttpResponse("Internal server error", status_code=500)
 
 
-# http GET function to get ChatBot conversation with chatID & timestamp
+# Get chat session info
 @app.function_name("GetChatState")
 @app.route(route="chats/{chatId}", methods=["GET"])
-@app.assistant_query_input(
-    arg_name="state",
-    id="{chatId}",
-    timestamp_utc="{Query.timestampUTC}",
-    chat_storage_connection_setting=CHAT_STORAGE_CONNECTION,
-    collection_name=COLLECTION_NAME
-)
-def get_chat_state(req: func.HttpRequest, state: str) -> func.HttpResponse:
-    return func.HttpResponse(state, status_code=200,
-                             mimetype="application/json")
+@app.table_input(arg_name="chat_entity", table_name=table_name, 
+                 partition_key="chat", row_key="{chatId}", connection="AzureWebJobsStorage")
+def get_chat_state(req: func.HttpRequest, chat_entity: str) -> func.HttpResponse:
+    try:
+        chat_id = req.route_params.get("chatId")
+        
+        if not chat_entity:
+            return func.HttpResponse("Chat not found", status_code=404)
+        
+        # Find the specific entity in the response
+        entities = json.loads(chat_entity) if isinstance(chat_entity, str) else chat_entity
+        if isinstance(entities, list):
+            entity = next((e for e in entities if e.get("RowKey") == chat_id), None)
+        else:
+            entity = entities
+        
+        if not entity:
+            return func.HttpResponse("Chat not found", status_code=404)
+            
+        return func.HttpResponse(json.dumps({
+            "instructions": entity.get("instructions", ""),
+            "created_at": entity.get("created_at", "")
+        }), status_code=200, mimetype="application/json")
+    
+    except Exception as e:
+        logging.error(f"Error getting chat state: {e}")
+        return func.HttpResponse("Internal server error", status_code=500)
 
 
-# http POST function for user to send a message to ChatBot with chatID
+# Send message to chat and get AI response
 @app.function_name("PostUserResponse")
 @app.route(route="chats/{chatId}", methods=["POST"])
-@app.assistant_post_input(
-    arg_name="state", id="{chatId}",
-    user_message="{message}",
-    model="%CHAT_MODEL_DEPLOYMENT_NAME%",
-    chat_storage_connection_setting=CHAT_STORAGE_CONNECTION,
-    collection_name=COLLECTION_NAME
-    )
-def post_user_response(req: func.HttpRequest, state: str) -> func.HttpResponse:
-    # Parse the JSON string into a dictionary
-    data = json.loads(state)
-
-    # Extract the content of the recentMessage
-    recent_message_content = data['recentMessages'][0]['content']
-    return func.HttpResponse(recent_message_content, status_code=200,
-                             mimetype="text/plain")
+@app.table_input(arg_name="chat_entity", table_name=table_name, 
+                 partition_key="chat", row_key="{chatId}", connection="AzureWebJobsStorage")
+@app.table_output(arg_name="chat_table", table_name=table_name, connection="AzureWebJobsStorage")
+def post_user_response(req: func.HttpRequest, chat_entity: str, chat_table: func.Out[str]) -> func.HttpResponse:
+    try:
+        chat_id = req.route_params.get("chatId")
+        req_body = req.get_json()
+        message = req_body.get('message') if req_body else None
+        
+        if not message:
+            return func.HttpResponse("Message is required", status_code=400)
+        if not chat_entity:
+            return func.HttpResponse("Chat not found", status_code=404)
+        
+        # Find the specific entity in the response
+        entities = json.loads(chat_entity) if isinstance(chat_entity, str) else chat_entity
+        if isinstance(entities, list):
+            entity = next((e for e in entities if e.get("RowKey") == chat_id), None)
+        else:
+            entity = entities
+        
+        if not entity:
+            return func.HttpResponse("Chat not found", status_code=404)
+        
+        # Prepare messages for chat completion
+        messages = []
+        
+        # Add system message if instructions exist
+        if entity.get("instructions"):
+            messages.append({"role": "system", "content": entity["instructions"]})
+        
+        # Add user message
+        messages.append({"role": "user", "content": message})
+        
+        # Get AI response using chat completions
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages
+        )
+        
+        # Update chat state (removing previous_response_id as it's not needed with standard OpenAI)
+        updated_entity = {
+            "PartitionKey": "chat",
+            "RowKey": chat_id,
+            "instructions": entity.get("instructions", "You are a helpful assistant."),
+            "created_at": entity.get("created_at", datetime.utcnow().isoformat()),
+            "ETag": "*"
+        }
+        
+        chat_table.set(json.dumps(updated_entity))
+        return func.HttpResponse(response.choices[0].message.content, status_code=200, mimetype="text/plain")
+    
+    except Exception as e:
+        logging.error(f"Error processing chat message: {e}")
+        return func.HttpResponse("Internal server error", status_code=500)
